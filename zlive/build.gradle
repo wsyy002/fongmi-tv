@@ -8,7 +8,7 @@ android {
     compileSdk 36
 
     defaultConfig {
-        minSdk 24
+        minSdk 23
         targetSdk 37
         ndk { abiFilters "armeabi-v7a" }
     }
