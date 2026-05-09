@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="SMB Settings"
+        android:textColor="@android:color/white"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/smb_host_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Host / IP"
+        android:textColor="#AAAAAA"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/smb_host"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/selector_text"
+        android:gravity="center"
+        android:hint="192.168.1.x"
+        android:padding="8dp"
+        android:textColor="@android:color/white"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/smb_share_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="Share Name"
+        android:textColor="#AAAAAA"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/smb_share"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/selector_text"
+        android:gravity="center"
+        android:hint="Video"
+        android:padding="8dp"
+        android:textColor="@android:color/white"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/smb_user_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="Username (optional)"
+        android:textColor="#AAAAAA"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/smb_user"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/selector_text"
+        android:gravity="center"
+        android:hint="guest"
+        android:padding="8dp"
+        android:textColor="@android:color/white"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/smb_pass_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="Password (optional)"
+        android:textColor="#AAAAAA"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/smb_pass"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/selector_text"
+        android:gravity="center"
+        android:hint="********"
+        android:padding="8dp"
+        android:textColor="@android:color/white"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/smb_connect"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/selector_video"
+        android:gravity="center"
+        android:text="Connect"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/smb_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:text=""
+        android:textColor="#FF9800"
+        android:textSize="14sp" />
+
+</LinearLayout>

@@ -74,6 +74,14 @@ public class Setting {
         Prefers.put("player", player);
     }
 
+    public static String getEpgUrl() {
+        return Prefers.getString("epg_url", "http://192.168.101.28:9003/epg/epg.gz");
+    }
+
+    public static void putEpgUrl(String url) {
+        Prefers.put("epg_url", url);
+    }
+
     public static int getLivePlayer() {
         return Prefers.getInt("live_player", 1);
     }
