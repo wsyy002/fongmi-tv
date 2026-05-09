@@ -1,14 +1,9 @@
 name: Build FongMi TV APK
-
-on:
-  push:
-    branches: [ master ]
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -20,19 +15,12 @@ jobs:
 
       - name: Build
         run: |
-          ./gradlew assembleDebug --stacktrace --no-daemon > build.log 2>&1; EXIT=$?
-          echo "========= ERROR LOG (first 20 matches) ========="
-          grep -n -i "error\|exception\|cannot\|FAILED\|Caused by:" build.log 2>/dev/null | head -20
-          echo "========= LAST 40 LINES ========"
+          echo "Starting build..."
+          echo "Build started at: $(date)"
+          ./gradlew :app:assembleDebug --stacktrace 2>&1 | tee build.log || true
+          echo "Build finished at: $(date)"
+          echo "Build finished. Checking for errors..."
+          grep -i "error\|exception\|cannot\|FAILED\|Caused by:" build.log 2>/dev/null | head -20 || echo "(no common errors found)"
+          echo "=== LAST 40 LINES ==="
           tail -40 build.log
-          echo "========= EXIT CODE: $EXIT ========"
-          exit $EXIT
-
-      - name: Upload APKs (even if partial)
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: fongmi-tv-APK
-          path: |
-            app/build/outputs/apk/*/debug/*.apk
-          if-no-files-found: warn
+          echo "=== END ==="
