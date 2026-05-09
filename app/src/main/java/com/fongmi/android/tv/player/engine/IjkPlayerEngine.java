@@ -24,7 +24,7 @@ public class IjkPlayerEngine implements PlayerEngine {
     private int decode;
     private boolean live;
 
-    public IjkPlayerEngine(int decode, Listener listener) {
+    public IjkPlayerEngine(int decode, Player.Listener listener) {
         this.player = new IjkMediaPlayer();
         this.decode = decode;
         initPlayer();
@@ -66,7 +66,7 @@ public class IjkPlayerEngine implements PlayerEngine {
     }
 
     @Override
-    public Player rebuild(Listener listener) {
+    public Player rebuild(Player.Listener listener) {
         release();
         player = new IjkMediaPlayer();
         initPlayer();
