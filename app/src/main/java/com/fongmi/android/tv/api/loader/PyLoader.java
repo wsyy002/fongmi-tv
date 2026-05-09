@@ -1,7 +1,5 @@
 package com.fongmi.android.tv.api.loader;
 
-import com.fongmi.android.tv.App;
-import com.fongmi.chaquo.Loader;
 import com.github.catvod.crawler.Spider;
 import com.github.catvod.crawler.SpiderNull;
 
@@ -11,12 +9,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PyLoader {
 
     private final ConcurrentHashMap<String, Spider> spiders;
-    private final Loader loader;
     private volatile String recent;
 
     public PyLoader() {
         spiders = new ConcurrentHashMap<>();
-        loader = new Loader();
     }
 
     public void clear() {
@@ -30,17 +26,8 @@ public class PyLoader {
     }
 
     public Spider getSpider(String key, String api, String ext) {
-        return spiders.computeIfAbsent(key, k -> {
-            try {
-                Spider spider = loader.spider(api);
-                spider.siteKey = key;
-                spider.init(App.get(), ext);
-                return spider;
-            } catch (Throwable e) {
-                e.printStackTrace();
-                return new SpiderNull();
-            }
-        });
+        // Python spider loader disabled - chaquopy removed for Android 6.0 compatibility
+        return new SpiderNull();
     }
 
     public Object[] proxy(Map<String, String> params) throws Exception {
