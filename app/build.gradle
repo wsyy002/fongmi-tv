@@ -5,7 +5,7 @@ plugins {
 android {
     namespace = 'com.fongmi.android.tv'
 
-    compileSdk { version = 35 }
+    compileSdk { version = release(35) }
 
     defaultConfig {
         applicationId "com.fnstudio.tv"
