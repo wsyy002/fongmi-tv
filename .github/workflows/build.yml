@@ -10,17 +10,26 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
       - uses: android-actions/setup-android@v3
       - run: chmod +x gradlew
 
       - name: Build
         run: |
-          echo "Starting build..."
           echo "Build started at: $(date)"
           ./gradlew :app:assembleDebug --stacktrace 2>&1 | tee build.log || true
           echo "Build finished at: $(date)"
-          echo "Build finished. Checking for errors..."
-          grep -i "error\|exception\|cannot\|FAILED\|Caused by:" build.log 2>/dev/null | head -20 || echo "(no common errors found)"
+          echo "=== ERRORS ==="
+          grep -i "error\|exception\|cannot\|FAILED\|Caused by:" build.log 2>/dev/null | head -20 || echo "(none found)"
           echo "=== LAST 40 LINES ==="
           tail -40 build.log
           echo "=== END ==="
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: fongmi-tv-APK
+          path: app/build/outputs/apk/*/debug/*.apk
+          if-no-files-found: warn
