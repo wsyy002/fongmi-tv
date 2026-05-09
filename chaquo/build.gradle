@@ -6,9 +6,7 @@ plugins {
 android {
     namespace = 'com.fongmi.chaquo'
 
-    compileSdk {
-        version = release(37)
-    }
+    compileSdk = 35
 
     defaultConfig {
         minSdk 24
