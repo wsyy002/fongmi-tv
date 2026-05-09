@@ -6,6 +6,7 @@
 *.jks
 *.properties
 !gradle/wrapper/gradle-wrapper.properties
+!gradle.properties
 lib-*.aar
 /Release
 .github
