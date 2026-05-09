@@ -5,10 +5,8 @@ import android.content.SharedPreferences;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.hierynomus.msdtyp.AccessMask;
+import com.hierynomus.msfscc.FileAttributes;
 import com.hierynomus.msfscc.fileinformation.FileIdBothDirectoryInformation;
-import com.hierynomus.mssmb2.SMB2CreateDisposition;
-import com.hierynomus.mssmb2.SMB2ShareAccess;
 import com.hierynomus.smbj.SMBClient;
 import com.hierynomus.smbj.auth.AuthenticationContext;
 import com.hierynomus.smbj.connection.Connection;
@@ -58,8 +56,10 @@ public class SmbManager {
                 if (".".equals(name) || "..".equals(name)) continue;
                 SmbFileInfo info = new SmbFileInfo();
                 info.setName(name);
-                info.setDirectory(item.isDirectory());
-                info.setSize(item.getEndOfFile() != null ? item.getEndOfFile() : 0);
+                boolean isDir = (item.getFileAttributes() & FileAttributes.FILE_ATTRIBUTE_DIRECTORY) != 0;
+                info.setDirectory(isDir);
+                Long endOfFile = item.getEndOfFile();
+                info.setSize(endOfFile != null ? endOfFile : 0);
                 info.setPath((dir.isEmpty() ? "" : dir.endsWith("/") ? dir : dir + "/") + name);
                 result.add(info);
             }
