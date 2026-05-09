@@ -31,20 +31,14 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build arm64-v8a
-        run: ./gradlew assembleLeanbackArm64_v8aDebug --stacktrace --no-daemon
+      - name: Build all TV variants
+        run: ./gradlew assembleDebug --no-daemon 2>&1 | tail -50
 
-      - name: Upload APK (64-bit)
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: fongmi-tv-leanback-arm64_v8a
-          path: app/build/outputs/apk/leanbackArm64_v8a/debug/*.apk
-
-      - name: Build armeabi-v7a (32-bit)
-        run: ./gradlew assembleLeanbackArmeabi_v7aDebug --stacktrace --no-daemon
-
-      - name: Upload APK (32-bit)
-        uses: actions/upload-artifact@v4
-        with:
-          name: fongmi-tv-leanback-armeabi_v7a
-          path: app/build/outputs/apk/leanbackArmeabi_v7a/debug/*.apk
+          name: fongmi-tv-leanback-APK
+          path: |
+            app/build/outputs/apk/leanbackArm64_v8a/debug/*.apk
+            app/build/outputs/apk/leanbackArmeabi_v7a/debug/*.apk
+          if-no-files-found: error
