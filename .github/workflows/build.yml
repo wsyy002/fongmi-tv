@@ -21,15 +21,25 @@ jobs:
           echo "Build started at: $(date)"
           ./gradlew :app:assembleDebug --stacktrace 2>&1 | tee build.log || true
           echo "Build finished at: $(date)"
-          echo "=== ERRORS ==="
-          grep -i "error\|exception\|cannot\|FAILED\|Caused by:" build.log 2>/dev/null | head -20 || echo "(none found)"
-          echo "=== LAST 40 LINES ==="
-          tail -40 build.log
-          echo "=== END ==="
+      
+      - name: Find APKs
+        run: |
+          find . -name "*.apk" -type f 2>/dev/null
+          echo "=== Number found ==="
+          find . -name "*.apk" -type f 2>/dev/null | wc -l
 
-      - name: Upload APKs
+      - name: Upload leanback arm64
         uses: actions/upload-artifact@v4
         with:
-          name: fongmi-tv-APK
-          path: app/build/outputs/apk/*/debug/*.apk
+          name: fongmi-tv-arm64_v8a
+          path: |
+            app/build/outputs/apk/*/*/*.apk
+          if-no-files-found: warn
+
+      - name: Upload leanback armeabi
+        uses: actions/upload-artifact@v4
+        with:
+          name: fongmi-tv-armeabi_v7a
+          path: |
+            app/build/outputs/apk/*/*/*.apk
           if-no-files-found: warn
