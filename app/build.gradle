@@ -10,7 +10,7 @@ rootProject.file('local.properties').withInputStream {
 android {
     namespace = 'com.fongmi.android.tv'
 
-    compileSdk = 35
+    compileSdk 35
 
     defaultConfig {
         applicationId "com.fnstudio.tv"
