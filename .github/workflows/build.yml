@@ -31,32 +31,20 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build with Gradle
-        run: ./gradlew assembleLeanbackArm64_v8aRelease --stacktrace --no-daemon
+      - name: Build arm64-v8a
+        run: ./gradlew assembleLeanbackArm64_v8aDebug --stacktrace --no-daemon
 
-      - name: Upload APK
+      - name: Upload APK (64-bit)
         uses: actions/upload-artifact@v4
         with:
           name: fongmi-tv-leanback-arm64_v8a
-          path: app/build/outputs/apk/leanbackArm64_v8a/release/*.apk
+          path: app/build/outputs/apk/leanbackArm64_v8a/debug/*.apk
 
       - name: Build armeabi-v7a (32-bit)
-        run: ./gradlew assembleLeanbackArmeabi_v7aRelease --stacktrace --no-daemon
+        run: ./gradlew assembleLeanbackArmeabi_v7aDebug --stacktrace --no-daemon
 
       - name: Upload APK (32-bit)
         uses: actions/upload-artifact@v4
         with:
           name: fongmi-tv-leanback-armeabi_v7a
-          path: app/build/outputs/apk/leanbackArmeabi_v7a/release/*.apk
-
-      - name: Create Release
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: build-${{ github.run_number }}
-          name: "Build #${{ github.run_number }} - ${{ github.event.head_commit.message || 'Manual build' }}"
-          files: |
-            app/build/outputs/apk/leanbackArm64_v8a/release/*.apk
-            app/build/outputs/apk/leanbackArmeabi_v7a/release/*.apk
-          generate_release_notes: true
-          fail_on_unmatched: true
+          path: app/build/outputs/apk/leanbackArmeabi_v7a/debug/*.apk
