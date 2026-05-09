@@ -2,15 +2,10 @@ plugins {
     id 'com.android.application'
 }
 
-def localProps = new Properties()
-rootProject.file('local.properties').withInputStream {
-    localProps.load(it)
-}
-
 android {
     namespace = 'com.fongmi.android.tv'
 
-    compileSdk 35
+    compileSdk { version = 35 }
 
     defaultConfig {
         applicationId "com.fnstudio.tv"
@@ -51,14 +46,8 @@ android {
     }
 
     signingConfigs {
-        debug {
-            storeFile file(localProps['storeFile'] ?: 'debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
-        }
         release {
-            storeFile file(localProps['storeFile'] ?: 'debug.keystore')
+            storeFile file('debug.keystore')
             storePassword 'android'
             keyAlias 'androiddebugkey'
             keyPassword 'android'
@@ -66,9 +55,6 @@ android {
     }
 
     buildTypes {
-        debug {
-            signingConfig = signingConfigs.debug
-        }
         release {
             minifyEnabled = true
             shrinkResources = true
