@@ -102,7 +102,6 @@ androidComponents {
 dependencies {
     implementation fileTree(dir: "libs", include: ["*.aar"])
     implementation project(':catvod')
-    implementation project(':chaquo')
     implementation project(':quickjs')
     implementation project(':ijkplayer')
     implementation 'androidx.appcompat:appcompat:1.7.1'
