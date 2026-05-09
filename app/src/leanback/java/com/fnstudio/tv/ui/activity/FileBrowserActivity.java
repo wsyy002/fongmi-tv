@@ -26,6 +26,10 @@ import com.fongmi.android.tv.ui.base.BaseActivity;
 import com.fongmi.android.tv.utils.ResUtil;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -44,6 +48,7 @@ public class FileBrowserActivity extends BaseActivity {
     private SmbManager smbManager;
     private boolean smbConnected;
     private String smbCurrentPath;
+    private String smbShareName; // store current share name for display
 
     public static void start(Activity activity) {
         Intent intent = new Intent(activity, FileBrowserActivity.class);
@@ -226,9 +231,10 @@ public class FileBrowserActivity extends BaseActivity {
                 smbManager.connectWithShare(server.getHost(), server.getPort(),
                         server.getUsername(), server.getPassword(), server.getShareName());
                 smbConnected = true;
+                smbShareName = server.getShareName();
                 smbCurrentPath = "";
                 runOnUiThread(() -> {
-                    mBinding.title.setText("NAS - " + server.getShareName());
+                    mBinding.title.setText("NAS - " + smbShareName);
                     listSmbDirectory("");
                 });
             } catch (Exception e) {
@@ -262,7 +268,7 @@ public class FileBrowserActivity extends BaseActivity {
                     }
                     mAdapter.addAll(0, files);
                     mBinding.empty.setVisibility(files.isEmpty() ? View.VISIBLE : View.GONE);
-                    mBinding.path.setText("/" + (TextUtils.isEmpty(path) ? server.getShareName() : path));
+                    mBinding.path.setText("/" + (TextUtils.isEmpty(path) ? smbShareName : path));
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
@@ -279,11 +285,163 @@ public class FileBrowserActivity extends BaseActivity {
     }
 
     private void playFile(String path) {
-        if (path.endsWith(".iso")) {
-            String name = path.substring(path.lastIndexOf('/') + 1);
-            VideoActivity.start(this, "file://" + path, "file://" + path, name);
+        String name = path.substring(path.lastIndexOf('/') + 1);
+        if (path.toLowerCase().endsWith(".iso")) {
+            // Try to extract largest m2ts from ISO Blu-ray
+            String m2tsPath = extractIsoMainM2ts(path);
+            if (m2tsPath != null) {
+                VideoActivity.file(this, m2tsPath);
+            } else {
+                // Fallback: try playing ISO directly
+                VideoActivity.start(this, "file://" + path, "file://" + path, name);
+            }
         } else {
             VideoActivity.file(this, path);
+        }
+    }
+
+    private String extractIsoMainM2ts(String isoPath) {
+        try {
+            RandomAccessFile raf = new RandomAccessFile(isoPath, "r");
+            // Find BDMV/STREAM/ directory using ISO 9660 parsing
+            // Volume Descriptor at sector 16 (2048 bytes per sector for DVD/BD)
+            byte[] sector = new byte[2048];
+            long largestM2ts = 0;
+            String largestName = null;
+            
+            // Read volume descriptor set at LBA 16
+            raf.seek(16 * 2048L);
+            raf.readFully(sector);
+            
+            // Volume Descriptor: type at offset 0, identifier "CD001" at offset 1
+            if (sector[0] != 1 || sector[1] != 'C' || sector[2] != 'D' || sector[3] != '0' || sector[4] != '0' || sector[5] != '1') {
+                // Try UDF Anchor Volume Descriptor Pointer at LBA 256
+                raf.seek(256 * 2048L);
+                raf.readFully(sector);
+                // UDF identifier "BEA01" at offset 0
+                if ((sector[0] != (byte)0x42 || sector[1] != (byte)0x45 || 
+                     sector[2] != (byte)0x41 || sector[3] != (byte)0x30 || sector[4] != (byte)0x31) &&
+                    (sector[0] != (byte)0x4E || sector[1] != (byte)0x53 || /* NSR02/03 */
+                     sector[2] != (byte)0x52)) {
+                    raf.close();
+                    return null;
+                }
+                // Read Logical Volume Descriptor from AVDP
+                // Simplified: scan entire ISO for files with .m2ts extension
+                raf.close();
+                return scanIsoForM2ts(isoPath);
+            }
+            
+            // ISO 9660: Read root directory from volume descriptor
+            // Root directory record at offset 156
+            // This is complex; fallback to scanning
+            raf.close();
+            return scanIsoForM2ts(isoPath);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    private String scanIsoForM2ts(String isoPath) {
+        try {
+            RandomAccessFile raf = new RandomAccessFile(isoPath, "r");
+            long fileSize = raf.length();
+            long largestSize = 0;
+            long largestOffset = -1;
+            String largestName = null;
+            
+            // Scan for M2TS headers (0x000001BA or 0x4741 for MPEG-TS)
+            // M2TS files have 0x47 sync byte every 192 bytes
+            byte[] buf = new byte[4096];
+            long offset = 0;
+            int m2tsCount = 0;
+            
+            while (offset < fileSize) {
+                int read = raf.read(buf);
+                if (read <= 0) break;
+                
+                for (int i = 0; i < read - 192; i++) {
+                    // Check for M2TS/MTS: 0x47 sync byte at position 0, 192, 384...
+                    if ((buf[i] & 0xFF) == 0x47 && (buf[i + 192] & 0xFF) == 0x47) {
+                        m2tsCount++;
+                        long segmentSize = findM2tsSegmentSize(raf, isoPath, offset + i);
+                        if (segmentSize > largestSize) {
+                            largestSize = segmentSize;
+                            largestOffset = offset + i;
+                        }
+                        raf.seek(offset + i + Math.max(segmentSize, 192));
+                        offset = offset + i + Math.max(segmentSize, 192);
+                        i += Math.max(segmentSize, 192);
+                    }
+                }
+                offset += read;
+            }
+            
+            raf.close();
+            
+            if (m2tsCount > 0 && largestOffset >= 0) {
+                String outPath = isoPath + ".main.m2ts";
+                // Copy largest segment to temp file
+                extractSegment(isoPath, outPath, largestOffset, largestSize);
+                return outPath;
+            }
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    private long findM2tsSegmentSize(RandomAccessFile raf, String isoPath, long startOffset) {
+        try {
+            long endOffset = raf.length();
+            raf.seek(startOffset);
+            byte[] headerBuf = new byte[4];
+            long pos = startOffset;
+            int consecutiveSync = 0;
+            
+            while (pos < endOffset) {
+                raf.readFully(headerBuf);
+                if ((headerBuf[0] & 0xFF) == 0x47) {
+                    consecutiveSync++;
+                    if (consecutiveSync >= 100) {
+                        // Found many sync bytes, seems valid
+                        break;
+                    }
+                    pos += 192;
+                    raf.seek(pos);
+                } else {
+                    // End of segment
+                    return pos - startOffset;
+                }
+            }
+            return pos - startOffset;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+    
+    private void extractSegment(String isoPath, String outPath, long offset, long size) {
+        try {
+            File outFile = new File(outPath);
+            if (outFile.exists() && outFile.length() == size) return;
+            
+            RandomAccessFile raf = new RandomAccessFile(isoPath, "r");
+            FileOutputStream fos = new FileOutputStream(outPath);
+            raf.seek(offset);
+            byte[] buffer = new byte[8192];
+            long remaining = size;
+            
+            while (remaining > 0) {
+                int read = raf.read(buffer, 0, (int) Math.min(buffer.length, remaining));
+                if (read <= 0) break;
+                fos.write(buffer, 0, read);
+                remaining -= read;
+            }
+            
+            fos.close();
+            raf.close();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
