@@ -3,8 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     tools:ignore="ScopedStorage">
 
-    <!-- override minSdk for tvbus library which requires 24 -->
-    <uses-sdk tools:overrideLibrary="com.tvbus.engine" />
+    <!-- override minSdk for libraries which require 24+ -->
+    <uses-sdk tools:overrideLibrary="com.tvbus.engine,com.fongmi.hook,com.ghost.thunder" />
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
