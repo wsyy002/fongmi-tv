@@ -3,25 +3,22 @@ package com.fnstudio.tv.smb;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.text.TextUtils;
-import android.util.Base64;
 import android.util.Log;
 
+import com.hierynomus.msdtyp.AccessMask;
+import com.hierynomus.msfscc.fileinformation.FileIdBothDirectoryInformation;
+import com.hierynomus.mssmb2.SMB2CreateDisposition;
+import com.hierynomus.mssmb2.SMB2ShareAccess;
 import com.hierynomus.smbj.SMBClient;
 import com.hierynomus.smbj.auth.AuthenticationContext;
 import com.hierynomus.smbj.connection.Connection;
 import com.hierynomus.smbj.session.Session;
 import com.hierynomus.smbj.share.DiskShare;
-import com.hierynomus.smbj.share.File;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 
 public class SmbManager {
@@ -29,9 +26,6 @@ public class SmbManager {
     private static final String TAG = SmbManager.class.getSimpleName();
     private static final String PREFS_NAME = "smb_credentials";
     private static final String KEY_SERVERS = "smb_servers";
-
-    public static final int MODE_FILE = 0;
-    public static final int MODE_FOLDER = 1;
 
     private SMBClient client;
     private Connection connection;
@@ -43,17 +37,10 @@ public class SmbManager {
     }
 
     public void connect(String host, int port, String username, String password) throws IOException {
-        if (port > 0 && port != 445) {
-            connection = client.connect(host, port);
-        } else {
-            connection = client.connect(host);
-        }
-        AuthenticationContext auth;
-        if (TextUtils.isEmpty(username)) {
-            auth = AuthenticationContext.anonymous();
-        } else {
-            auth = new AuthenticationContext(username, password.toCharArray(), null);
-        }
+        connection = (port > 0 && port != 445) ? client.connect(host, port) : client.connect(host);
+        AuthenticationContext auth = TextUtils.isEmpty(username)
+                ? AuthenticationContext.anonymous()
+                : new AuthenticationContext(username, password.toCharArray(), null);
         session = connection.authenticate(auth);
     }
 
@@ -65,12 +52,15 @@ public class SmbManager {
     public List<SmbFileInfo> listFiles(String path) {
         List<SmbFileInfo> result = new ArrayList<>();
         try {
-            for (com.hierynomus.smbj.share.File item : share.list(path)) {
+            String dir = TextUtils.isEmpty(path) ? "" : path;
+            for (FileIdBothDirectoryInformation item : share.list(dir)) {
+                String name = item.getFileName();
+                if (".".equals(name) || "..".equals(name)) continue;
                 SmbFileInfo info = new SmbFileInfo();
-                info.setName(item.getName());
+                info.setName(name);
                 info.setDirectory(item.isDirectory());
-                info.setSize(item.getFileInformation() != null ? item.getFileInformation().getStandardInformation().getEndOfFile() : 0);
-                info.setPath(path.endsWith("/") ? path + item.getName() : path + "/" + item.getName());
+                info.setSize(item.getEndOfFile() != null ? item.getEndOfFile() : 0);
+                info.setPath((dir.isEmpty() ? "" : dir.endsWith("/") ? dir : dir + "/") + name);
                 result.add(info);
             }
         } catch (Exception e) {
@@ -83,29 +73,11 @@ public class SmbManager {
         return result;
     }
 
-    public InputStream readFile(String path) throws IOException {
-        if (share == null) return null;
-        com.hierynomus.smbj.share.File file = share.openFile(path, com.hierynomus.smbj.io.FilePermission.READ, com.hierynomus.smbj.share.AccessMask.GENERIC_READ, com.hierynomus.smbj.share.ShareAccess.FILE_SHARE_READ);
-        try (InputStream is = file.getInputStream()) {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = is.read(buffer)) != -1) {
-                baos.write(buffer, 0, read);
-            }
-            return new ByteArrayInputStream(baos.toByteArray());
-        }
-    }
-
     public void disconnect() {
-        try {
-            if (share != null) share.close();
-            if (session != null) session.close();
-            if (connection != null) connection.close();
-            if (client != null) client.close();
-        } catch (Exception e) {
-            Log.e(TAG, "disconnect error", e);
-        }
+        try { if (share != null) share.close(); } catch (Exception ignored) {}
+        try { if (session != null) session.close(); } catch (Exception ignored) {}
+        try { if (connection != null) connection.close(); } catch (Exception ignored) {}
+        try { if (client != null) client.close(); } catch (Exception ignored) {}
     }
 
     public boolean isConnected() {
@@ -124,8 +96,8 @@ public class SmbManager {
     }
 
     public static void saveServers(Context context, List<SmbServer> servers) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putString(KEY_SERVERS, SmbServer.toJson(servers)).apply();
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putString(KEY_SERVERS, SmbServer.toJson(servers)).apply();
     }
 
     public static void addServer(Context context, SmbServer server) {
@@ -165,9 +137,7 @@ public class SmbManager {
         private String password;
         private String displayName;
 
-        public SmbServer() {
-            this.port = 445;
-        }
+        public SmbServer() { this.port = 445; }
 
         public SmbServer(String host, int port, String shareName, String username, String password) {
             this.host = host;
@@ -193,11 +163,10 @@ public class SmbManager {
 
         public static List<SmbServer> arrayFrom(String json) {
             try {
-                com.google.gson.reflect.TypeToken<List<SmbServer>> token = new com.google.gson.reflect.TypeToken<List<SmbServer>>() {};
+                com.google.gson.reflect.TypeToken<List<SmbServer>> token =
+                    new com.google.gson.reflect.TypeToken<List<SmbServer>>() {};
                 return com.fongmi.android.tv.App.gson().fromJson(json, token.getType());
-            } catch (Exception e) {
-                return new ArrayList<>();
-            }
+            } catch (Exception e) { return new ArrayList<>(); }
         }
 
         public static String toJson(List<SmbServer> servers) {
@@ -209,7 +178,8 @@ public class SmbManager {
             if (this == obj) return true;
             if (!(obj instanceof SmbServer)) return false;
             SmbServer other = (SmbServer) obj;
-            return host != null && host.equals(other.host) && shareName != null && shareName.equals(other.shareName);
+            return host != null && host.equals(other.host)
+                && shareName != null && shareName.equals(other.shareName);
         }
     }
 }
