@@ -66,6 +66,22 @@ public class Setting {
         Prefers.put("reset", reset);
     }
 
+    public static int getPlayer() {
+        return Prefers.getInt("player", 2);
+    }
+
+    public static void putPlayer(int player) {
+        Prefers.put("player", player);
+    }
+
+    public static int getLivePlayer() {
+        return Prefers.getInt("live_player", 1);
+    }
+
+    public static void putLivePlayer(int player) {
+        Prefers.put("live_player", player);
+    }
+
     public static int getRender() {
         return Prefers.getInt("render", 0);
     }

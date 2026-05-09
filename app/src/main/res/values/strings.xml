@@ -159,6 +159,12 @@
     <string name="times">times</string>
     <string name="lines">lines</string>
 
+    <string-array name="select_player">
+        <item>System</item>
+        <item>IJK</item>
+        <item>Exo</item>
+    </string-array>
+
     <string-array name="select_decode">
         <item>Soft</item>
         <item>Hard</item>
