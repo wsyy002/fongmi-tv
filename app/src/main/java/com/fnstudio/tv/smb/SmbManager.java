@@ -56,10 +56,10 @@ public class SmbManager {
                 if (".".equals(name) || "..".equals(name)) continue;
                 SmbFileInfo info = new SmbFileInfo();
                 info.setName(name);
-                boolean isDir = (item.getFileAttributes() & FileAttributes.FILE_ATTRIBUTE_DIRECTORY) != 0;
+                long attr = item.getFileAttributes() != null ? item.getFileAttributes() : 0;
+                boolean isDir = (attr & 0x10) != 0;
                 info.setDirectory(isDir);
-                Long endOfFile = item.getEndOfFile();
-                info.setSize(endOfFile != null ? endOfFile : 0);
+                info.setSize(item.getEndOfFile());
                 info.setPath((dir.isEmpty() ? "" : dir.endsWith("/") ? dir : dir + "/") + name);
                 result.add(info);
             }
