@@ -28,24 +28,31 @@ jobs:
           ./gradlew :app:assembleLeanbackArmeabi_v7aDebug --stacktrace 2>&1 | tee build-armeabi.log
           echo "Build armeabi_v7a finished at: $(date)"
 
-      - name: List APKs
+      - name: Collect APKs to known location
         run: |
-          find . -name "*.apk" -type f 2>/dev/null
-          echo "=== Number found ==="
-          find . -name "*.apk" -type f 2>/dev/null | wc -l
+          mkdir -p apk-artifacts
+          find . -name "*.apk" -type f -exec cp {} apk-artifacts/ \;
+          ls -la apk-artifacts/
+          echo "=== Count ==="
+          ls apk-artifacts/*.apk 2>/dev/null | wc -l
 
       - name: Upload arm64_v8a
         uses: actions/upload-artifact@v4
         with:
           name: fongmi-tv-arm64_v8a
-          path: |
-            app/build/outputs/apk/**/leanbackArm64_v8a*/*.apk
+          path: apk-artifacts/*arm64*apk
           if-no-files-found: warn
 
       - name: Upload armeabi_v7a
         uses: actions/upload-artifact@v4
         with:
           name: fongmi-tv-armeabi_v7a
-          path: |
-            app/build/outputs/apk/**/leanbackArmeabi_v7a*/*.apk
+          path: apk-artifacts/*armeabi*apk
           if-no-files-found: warn
+
+      - name: Upload universal (fallback)
+        uses: actions/upload-artifact@v4
+        with:
+          name: fongmi-tv-all-APKs
+          path: apk-artifacts/*.apk
+          if-no-files-found: error
