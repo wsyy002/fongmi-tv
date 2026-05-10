@@ -202,7 +202,11 @@ public class PlaybackService extends MediaLibraryService implements MediaLibrary
     }
 
     private void removeForeground() {
-        stopForeground(STOP_FOREGROUND_REMOVE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE);
+        } else {
+            stopForeground(true);
+        }
     }
 
     private void saveProgress() {
