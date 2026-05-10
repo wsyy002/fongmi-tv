@@ -2,6 +2,7 @@ package com.fongmi.android.tv.player;
 
 import android.net.Uri;
 import android.text.TextUtils;
+import android.view.Surface;
 
 import androidx.annotation.NonNull;
 import androidx.media3.common.MediaItem;
@@ -39,6 +40,9 @@ import master.flame.danmaku.ui.widget.DanmakuView;
 
 public class PlayerManager implements ParseCallback {
 
+    private static final int PLAYER_EXO = 0;
+    private static final int PLAYER_IJK = 1;
+
     private final Runnable runnable;
     private final Callback callback;
     private ExoPlayerEngine exoEngine;
@@ -48,7 +52,9 @@ public class PlayerManager implements ParseCallback {
     private ParseJob parseJob;
     private PlaySpec spec;
     private Player player;
-    private boolean useIjk;
+    private int activeEngine = PLAYER_EXO;
+    private boolean forceIjk = false;
+    private boolean forceExo = false;
 
     private boolean initTrack;
     private int retry;
@@ -59,25 +65,58 @@ public class PlayerManager implements ParseCallback {
         this.ijkEngine = new IjkPlayerEngine(PlayerEngine.HARD, null);
         this.player = exoEngine.getPlayer();
         this.callback = callback;
-        this.useIjk = false;
+        this.activeEngine = PLAYER_EXO;
+        // Connect IJK engine error callback to PlayerManager's callback
+        this.ijkEngine.setCallback(new IjkPlayerEngine.Callback() {
+            @Override
+            public void onPrepare() {
+                callback.onPrepare();
+                App.removeCallbacks(runnable);
+            }
+
+            @Override
+            public void onError(String msg) {
+                callback.onError(msg);
+            }
+        });
     }
 
     private boolean isIjkMode() {
-        return useIjk;
+        return activeEngine == PLAYER_IJK;
     }
 
-    public void setIjkMode(boolean ijk) {
-        if (this.useIjk == ijk) return;
-        this.useIjk = ijk;
-        if (ijk) {
-            if (player != null) player.removeListener(listener);
-            if (exoEngine != null) exoEngine.release();
-            player = null;
-            if (ijkEngine == null) ijkEngine = new IjkPlayerEngine(PlayerEngine.HARD, null);
-        } else {
-            if (ijkEngine != null) ijkEngine.release();
-            if (exoEngine == null) exoEngine = new ExoPlayerEngine(PlayerEngine.HARD, listener);
-            player = exoEngine.getPlayer();
+    /**
+     * Switch active rendering engine.
+     * ExoPlayer is ALWAYS kept alive for MediaSession compatibility.
+     * In IJK mode, ExoPlayer is paused/stopped but not released.
+     */
+    public void setActiveEngine(int playerType) {
+        if (this.activeEngine == playerType) return;
+        this.activeEngine = playerType;
+        switch (playerType) {
+            case PLAYER_IJK:
+                // Stop ExoPlayer but keep it alive for MediaSession
+                if (player != null) {
+                    player.stop();
+                    player.clearMediaItems();
+                }
+                if (ijkEngine == null) ijkEngine = new IjkPlayerEngine(PlayerEngine.HARD, null);
+                break;
+            case PLAYER_EXO:
+            default:
+                if (ijkEngine != null) {
+                    ijkEngine.stop();
+                }
+                if (player != null) {
+                    player.setPlayWhenReady(true);
+                }
+                break;
+        }
+    }
+
+    public void setIjkSurface(Surface surface) {
+        if (ijkEngine != null && isIjkMode()) {
+            ijkEngine.setSurface(surface);
         }
     }
 
@@ -88,43 +127,49 @@ public class PlayerManager implements ParseCallback {
             danPlayer.release();
             danPlayer = null;
         }
-        if (isIjkMode()) {
-            if (ijkEngine != null) {
-                ijkEngine.release();
-                ijkEngine = null;
-            }
-        } else {
-            if (player != null) player.removeListener(listener);
-            if (exoEngine != null) {
-                exoEngine.release();
-                exoEngine = null;
-            }
-            player = null;
+        if (player != null) player.removeListener(listener);
+        if (exoEngine != null) {
+            exoEngine.release();
+            exoEngine = null;
         }
+        if (ijkEngine != null) {
+            ijkEngine.release();
+            ijkEngine = null;
+        }
+        player = null;
     }
 
+    /**
+     * Always return the ExoPlayer for MediaSession compatibility.
+     * ExoPlayer is kept idle during IJK playback.
+     */
     public Player getPlayer() {
-        return isIjkMode() ? null : player;
+        return player;
     }
 
     public Tracks getCurrentTracks() {
-        return isIjkMode() ? null : exoEngine.getCurrentTracks();
+        return !isIjkMode() && exoEngine != null ? exoEngine.getCurrentTracks() : null;
     }
 
     public MediaItem getCurrentMediaItem() {
-        return isIjkMode() ? null : player.getCurrentMediaItem();
+        return !isIjkMode() && player != null ? player.getCurrentMediaItem() : null;
     }
 
     public int getPlaybackState() {
-        return isIjkMode() ? Player.STATE_READY : player.getPlaybackState();
+        if (isIjkMode()) {
+            IjkPlayerEngine ijk = ijkEngine;
+            return ijk != null && ijk.isPrepared() && ijk.isPlaying() ? Player.STATE_READY :
+                   ijk != null && ijk.isPrepared() && !ijk.isPlaying() ? Player.STATE_READY :
+                   ijk != null && !ijk.isPrepared() ? Player.STATE_BUFFERING : Player.STATE_IDLE;
+        }
+        return player != null ? player.getPlaybackState() : Player.STATE_IDLE;
     }
 
     public boolean isPlaying() {
         if (isIjkMode()) {
-            tv.danmaku.ijk.media.player.IjkMediaPlayer ijk = ijkEngine.getIjkPlayer();
-            return ijk != null && ijk.isPlaying();
+            return ijkEngine != null && ijkEngine.isPlaying();
         }
-        return player.isPlaying();
+        return player != null && player.isPlaying();
     }
 
     public String getUrl() {
@@ -144,7 +189,7 @@ public class PlayerManager implements ParseCallback {
     }
 
     public float getSpeed() {
-        return isIjkMode() ? 1.0f : player.getPlaybackParameters().speed;
+        return player != null ? player.getPlaybackParameters().speed : 1.0f;
     }
 
     public boolean isEmpty() {
@@ -160,15 +205,15 @@ public class PlayerManager implements ParseCallback {
     }
 
     public boolean isLive() {
-        return isIjkMode() ? ijkEngine.isLive() : exoEngine.isLive();
+        return isIjkMode() ? (ijkEngine != null && ijkEngine.isLive()) : (exoEngine != null && exoEngine.isLive());
     }
 
     public boolean isVod() {
-        return isIjkMode() ? ijkEngine.isVod() : exoEngine.isVod();
+        return isIjkMode() ? (ijkEngine == null || !ijkEngine.isLive()) : (exoEngine != null && exoEngine.isVod());
     }
 
     public boolean haveTrack(int type) {
-        return isIjkMode() ? false : exoEngine.haveTrack(type);
+        return isIjkMode() ? false : (exoEngine != null && exoEngine.haveTrack(type));
     }
 
     public boolean haveDanmaku() {
@@ -185,26 +230,23 @@ public class PlayerManager implements ParseCallback {
 
     public int getVideoWidth() {
         if (isIjkMode()) {
-            tv.danmaku.ijk.media.player.IjkMediaPlayer ijk = ijkEngine.getIjkPlayer();
-            return ijk == null ? 0 : ijk.getVideoWidth();
+            return ijkEngine != null ? ijkEngine.getVideoWidth() : 0;
         }
         return videoSize == null ? 0 : videoSize.width;
     }
 
     public int getVideoHeight() {
         if (isIjkMode()) {
-            tv.danmaku.ijk.media.player.IjkMediaPlayer ijk = ijkEngine.getIjkPlayer();
-            return ijk == null ? 0 : ijk.getVideoHeight();
+            return ijkEngine != null ? ijkEngine.getVideoHeight() : 0;
         }
         return videoSize == null ? 0 : videoSize.height;
     }
 
     public long getPosition() {
         if (isIjkMode()) {
-            tv.danmaku.ijk.media.player.IjkMediaPlayer ijk = ijkEngine.getIjkPlayer();
-            return ijk == null ? 0 : ijk.getCurrentPosition();
+            return ijkEngine != null ? ijkEngine.getCurrentPosition() : 0;
         }
-        return player.getCurrentPosition();
+        return player != null ? player.getCurrentPosition() : 0;
     }
 
     public String getSizeText() {
@@ -216,7 +258,8 @@ public class PlayerManager implements ParseCallback {
     }
 
     public String getDecodeText() {
-        return isIjkMode() ? ijkEngine.getDecodeText() : exoEngine.getDecodeText();
+        return isIjkMode() && ijkEngine != null ? ijkEngine.getDecodeText() :
+               exoEngine != null ? exoEngine.getDecodeText() : "";
     }
 
     public String getPositionTime(long delta) {
@@ -226,10 +269,9 @@ public class PlayerManager implements ParseCallback {
 
     public long getDuration() {
         if (isIjkMode()) {
-            tv.danmaku.ijk.media.player.IjkMediaPlayer ijk = ijkEngine.getIjkPlayer();
-            return ijk == null ? 0 : ijk.getDuration();
+            return ijkEngine != null ? ijkEngine.getDuration() : 0;
         }
-        return player.getDuration();
+        return player != null ? player.getDuration() : 0;
     }
 
     public String getDurationTime() {
@@ -253,21 +295,21 @@ public class PlayerManager implements ParseCallback {
 
     public void setMetadata(MediaMetadata data) {
         if (spec != null) spec.setMetadata(data);
-        if (!isIjkMode()) exoEngine.setMetadata(data);
+        if (!isIjkMode() && exoEngine != null) exoEngine.setMetadata(data);
     }
 
     public void setDanmakuView(DanmakuView view) {
         danPlayer = new DanPlayer(view);
-        danPlayer.attachPlayer(player);
+        if (player != null) danPlayer.attachPlayer(player);
     }
 
     public void setDanmakuSize(float size) {
-        danPlayer.setTextSize(size);
+        if (danPlayer != null) danPlayer.setTextSize(size);
     }
 
     public String setSpeed(float speed) {
         if (isIjkMode()) return getSpeedText();
-        if (!player.isCommandAvailable(Player.COMMAND_SET_SPEED_AND_PITCH)) return getSpeedText();
+        if (player == null || !player.isCommandAvailable(Player.COMMAND_SET_SPEED_AND_PITCH)) return getSpeedText();
         player.setPlaybackParameters(player.getPlaybackParameters().withSpeed(speed));
         return getSpeedText();
     }
@@ -292,23 +334,21 @@ public class PlayerManager implements ParseCallback {
     }
 
     public void setTrack(List<Track> tracks) {
-        if (!tracks.isEmpty() && !isIjkMode()) exoEngine.setTrack(tracks);
+        if (!tracks.isEmpty() && !isIjkMode() && exoEngine != null) exoEngine.setTrack(tracks);
     }
 
     public void play() {
         if (isIjkMode()) {
-            tv.danmaku.ijk.media.player.IjkMediaPlayer ijk = ijkEngine.getIjkPlayer();
-            if (ijk != null) ijk.start();
-        } else {
+            if (ijkEngine != null) ijkEngine.play();
+        } else if (player != null) {
             player.play();
         }
     }
 
     public void pause() {
         if (isIjkMode()) {
-            tv.danmaku.ijk.media.player.IjkMediaPlayer ijk = ijkEngine.getIjkPlayer();
-            if (ijk != null) ijk.pause();
-        } else {
+            if (ijkEngine != null) ijkEngine.pause();
+        } else if (player != null) {
             player.pause();
         }
     }
@@ -316,24 +356,23 @@ public class PlayerManager implements ParseCallback {
     public void stop() {
         if (danPlayer != null) danPlayer.stop();
         if (isIjkMode()) {
-            tv.danmaku.ijk.media.player.IjkMediaPlayer ijk = ijkEngine.getIjkPlayer();
-            if (ijk != null) ijk.stop();
-        } else {
+            if (ijkEngine != null) ijkEngine.stop();
+        } else if (player != null) {
             player.stop();
         }
         stopParse();
     }
 
     public void setRepeatOne(boolean repeat) {
-        if (isIjkMode()) return;
-        player.setRepeatMode(repeat ? Player.REPEAT_MODE_ONE : Player.REPEAT_MODE_OFF);
+        if (!isIjkMode() && player != null) {
+            player.setRepeatMode(repeat ? Player.REPEAT_MODE_ONE : Player.REPEAT_MODE_OFF);
+        }
     }
 
     public void seekTo(long time) {
         if (isIjkMode()) {
-            tv.danmaku.ijk.media.player.IjkMediaPlayer ijk = ijkEngine.getIjkPlayer();
-            if (ijk != null) ijk.seekTo(time);
-        } else {
+            if (ijkEngine != null) ijkEngine.seekTo(time);
+        } else if (player != null) {
             player.seekTo(time);
         }
     }
@@ -348,15 +387,17 @@ public class PlayerManager implements ParseCallback {
     }
 
     public void resetTrack() {
-        if (!isIjkMode()) exoEngine.resetTrack();
+        if (!isIjkMode() && exoEngine != null) exoEngine.resetTrack();
     }
 
     public void toggleDecode() {
         if (isIjkMode()) {
+            if (ijkEngine == null) return;
             ijkEngine.setDecode(ijkEngine.isHard() ? PlayerEngine.SOFT : PlayerEngine.HARD);
             rebuildIjkPlayer();
             setMediaItem();
         } else {
+            if (exoEngine == null) return;
             exoEngine.setDecode(exoEngine.isHard() ? PlayerEngine.SOFT : PlayerEngine.HARD);
             rebuildPlayer();
             setMediaItem();
@@ -374,9 +415,75 @@ public class PlayerManager implements ParseCallback {
         callback.onPlayerRebuild(null);
     }
 
+    /** Set to force IJK mode regardless of URL detection. Used by LiveActivity. */
+    public void setForceIjk(boolean force) {
+        this.forceIjk = force;
+        if (force) this.forceExo = false;
+    }
+
+    /** Set to force Exo mode regardless of URL detection. */
+    public void setForceExo(boolean force) {
+        this.forceExo = force;
+        if (force) this.forceIjk = false;
+    }
+
+    public boolean isForcedIjk() {
+        return forceIjk;
+    }
+
+    /**
+     * Start playback with auto engine selection.
+     * Priority: forceIjk > Setting.getLivePlayer() > URL detection > Setting.getPlayer()
+     */
     public void start(PlaySpec spec, long timeout) {
         this.spec = spec;
+
+        boolean shouldUseIjk = determineEngine(spec);
+
+        if (shouldUseIjk && !isIjkMode()) {
+            setActiveEngine(PLAYER_IJK);
+            if (ijkEngine != null) ijkEngine.setLive(true);
+        } else if (!shouldUseIjk && isIjkMode()) {
+            setActiveEngine(PLAYER_EXO);
+        }
+
+        // Reset forced flags after use
+        forceIjk = false;
+        forceExo = false;
+
         setMediaItem(timeout);
+    }
+
+    /**
+     * Determine which player engine to use for the given PlaySpec.
+     * User setting: getPlayer()=0→System(Exo), 1→IJK, 2→Exo(default)
+     * For live content, use getLivePlayer(): 0→System, 1→IJK(default), 2→Exo
+     */
+    private boolean determineEngine(PlaySpec spec) {
+        // 1. Explicit force flags (set by LiveActivity/VodActivity)
+        if (forceIjk) return true;
+        if (forceExo) return false;
+
+        // 2. Live content via URL detection
+        boolean isLiveContent = spec != null && spec.getUrl() != null &&
+                (spec.getUrl().contains(".m3u8") ||
+                 spec.getUrl().contains(".flv") ||
+                 spec.getUrl().contains("rtmp://") ||
+                 spec.getUrl().contains("rtsp://") ||
+                 spec.getUrl().contains("live") ||
+                 spec.getUrl().contains("play") ||
+                 spec.getUrl().startsWith("http://") && (
+                     spec.getUrl().contains("tv") ||
+                     spec.getUrl().contains("channel") ||
+                     spec.getUrl().contains("stream")));
+
+        if (isLiveContent) {
+            // Live: 0=Exo, 1=IJK(default), 2=Exo
+            return Setting.getLivePlayer() == 1;
+        } else {
+            // VOD: 0=System(Exo), 1=IJK, 2=Exo(default)
+            return Setting.getPlayer() == 1;
+        }
     }
 
     public void parse(String key, Result result, boolean useParse, MediaMetadata metadata) {
@@ -398,18 +505,28 @@ public class PlayerManager implements ParseCallback {
         if (spec == null || spec.getUrl() == null) return;
         setDanmakus(spec.getDanmakus());
         if (isIjkMode()) {
-            ijkEngine.setLive(!isVodDef());
-            ijkEngine.start(spec.checkUa());
+            if (ijkEngine != null) {
+                ijkEngine.setLive(!isVodDef());
+                ijkEngine.start(spec.checkUa());
+            }
         } else {
-            exoEngine.start(spec.checkUa());
+            if (exoEngine != null) {
+                exoEngine.start(spec.checkUa());
+            }
         }
         App.post(runnable, timeout);
         callback.onPrepare();
         initTrack = false;
     }
 
+    /**
+     * Determines if the current content should use ExoPlayer (VOD definition).
+     * live_player: 0=global(use getPlayer), 1=IJK for live, 2=Exo for live
+     */
     private boolean isVodDef() {
-        return Setting.getPlayer() != 1;
+        int livePlayer = Setting.getLivePlayer();
+        // Always return false in IJK mode, true in Exo mode
+        return activeEngine == PLAYER_EXO;
     }
 
     public void startBrowse(PlaySpec spec) {
@@ -485,10 +602,11 @@ public class PlayerManager implements ParseCallback {
 
         @Override
         public void onPlayerError(@NonNull PlaybackException e) {
-            PlayerEngine.ErrorAction action = isIjkMode() ? ijkEngine.handleError(e) : exoEngine.handleError(e);
+            PlayerEngine.ErrorAction action = isIjkMode() && ijkEngine != null ? ijkEngine.handleError(e) : (exoEngine != null ? exoEngine.handleError(e) : PlayerEngine.ErrorAction.FATAL);
             if (action == PlayerEngine.ErrorAction.RECOVERED) return;
             if (++retry > 2) {
-                callback.onError(isIjkMode() ? ijkEngine.getErrorMessage(e) : exoEngine.getErrorMessage(e));
+                callback.onError(isIjkMode() && ijkEngine != null ? ijkEngine.getErrorMessage(e) :
+                        (exoEngine != null ? exoEngine.getErrorMessage(e) : e.getMessage()));
                 return;
             }
             switch (action) {
@@ -496,7 +614,8 @@ public class PlayerManager implements ParseCallback {
                     toggleDecode();
                     break;
                 case FATAL:
-                    callback.onError(isIjkMode() ? ijkEngine.getErrorMessage(e) : exoEngine.getErrorMessage(e));
+                    callback.onError(isIjkMode() && ijkEngine != null ? ijkEngine.getErrorMessage(e) :
+                            (exoEngine != null ? exoEngine.getErrorMessage(e) : e.getMessage()));
                     break;
             }
         }

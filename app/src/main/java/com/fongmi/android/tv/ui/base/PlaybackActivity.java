@@ -200,11 +200,11 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     }
 
     private void attachSurface() {
-        if (mService != null && getExoView().getPlayer() == null) getExoView().setPlayer(player().getPlayer());
+        if (mService != null && getExoView().getPlayer() == null && player().getPlayer() != null) getExoView().setPlayer(player().getPlayer());
     }
 
     private void detachSurface() {
-        getExoView().setPlayer(null);
+        if (getExoView().getPlayer() != null) getExoView().setPlayer(null);
     }
 
     private void setRender() {

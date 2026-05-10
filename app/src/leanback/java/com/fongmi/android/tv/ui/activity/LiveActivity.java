@@ -5,7 +5,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.graphics.SurfaceTexture;
 import android.view.KeyEvent;
+import android.view.Surface;
+import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -96,6 +99,7 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
     private Runnable mR4;
     private Clock mClock;
     private View mFocus2;
+    private View mOldIjkView;
     private int count;
 
     public static void start(Context context) {
@@ -167,6 +171,7 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
         setRecyclerView();
         setVideoView();
         setViewModel();
+        initIjkView();
     }
 
     @Override
@@ -248,6 +253,40 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
         } else {
             getLive();
         }
+    }
+
+    private void initIjkView() {
+        mBinding.ijkView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+            @Override
+            public void onSurfaceTextureAvailable(SurfaceTexture st, int width, int height) {
+                if (player() != null) {
+                    player().setIjkSurface(new Surface(st));
+                }
+            }
+
+            @Override
+            public void onSurfaceTextureSizeChanged(SurfaceTexture st, int width, int height) {
+            }
+
+            @Override
+            public boolean onSurfaceTextureDestroyed(SurfaceTexture st) {
+                return true;
+            }
+
+            @Override
+            public void onSurfaceTextureUpdated(SurfaceTexture st) {
+            }
+        });
+    }
+
+    private void useIjkPlayer() {
+        mBinding.ijkView.setVisibility(View.VISIBLE);
+        mBinding.exo.setVisibility(View.GONE);
+    }
+
+    private void useExoPlayer() {
+        mBinding.ijkView.setVisibility(View.GONE);
+        mBinding.exo.setVisibility(View.VISIBLE);
     }
 
     private Callback getCallback() {
@@ -742,6 +781,32 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
 
     private void start(Result result) {
         mPlaybackKey = result.getRealUrl();
+        // Check if IJK mode should be used for this live stream
+        boolean useIjk = Setting.getLivePlayer() == 1;
+        if (useIjk) {
+            // Force IJK engine in PlayerManager
+            if (player() != null) {
+                player().setForceIjk(true);
+            }
+            // Show TextureView for IJK rendering, hide Exo PlayerView
+            mBinding.ijkView.setVisibility(View.VISIBLE);
+            mBinding.exo.setVisibility(View.GONE);
+            // Set IJK surface if TextureView surface is already available
+            if (mBinding.ijkView.isAvailable()) {
+                SurfaceTexture st = mBinding.ijkView.getSurfaceTexture();
+                if (st != null && player() != null) {
+                    player().setIjkSurface(new Surface(st));
+                }
+            }
+        } else {
+            // Force Exo engine in PlayerManager
+            if (player() != null) {
+                player().setForceExo(true);
+            }
+            // Use ExoPlayer - show PlayerView, hide TextureView
+            mBinding.ijkView.setVisibility(View.GONE);
+            mBinding.exo.setVisibility(View.VISIBLE);
+        }
         startPlayer(mPlaybackKey, result, false, getHome().getTimeout(), buildMetadata());
     }
 
