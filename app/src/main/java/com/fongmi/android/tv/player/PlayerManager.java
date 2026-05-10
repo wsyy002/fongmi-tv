@@ -490,6 +490,15 @@ public class PlayerManager implements ParseCallback {
 
     public void parse(String key, Result result, boolean useParse, MediaMetadata metadata) {
         stopParse();
+        // Apply pending engine switch (from forceIjk/forceExo set by LiveActivity)
+        if (forceIjk && !isIjkMode()) {
+            setActiveEngine(PLAYER_IJK);
+            if (ijkEngine != null) ijkEngine.setLive(true);
+        } else if (forceExo && isIjkMode()) {
+            setActiveEngine(PLAYER_EXO);
+        }
+        forceIjk = false;
+        forceExo = false;
         spec = PlaySpec.fromParse(result, key, metadata);
         parseJob = ParseJob.create(this).start(result, useParse);
     }
