@@ -136,7 +136,7 @@ public class IjkPlayerEngine implements PlayerEngine {
             }
 
             @Override
-            public boolean onInfo(IMediaPlayer mp, int what, int extra) {
+            public void onInfo(IMediaPlayer mp, int what, int extra) {
                 switch (what) {
                     case IjkMediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START:
                         isPlaying = true;
@@ -151,7 +151,6 @@ public class IjkPlayerEngine implements PlayerEngine {
                     case IjkMediaPlayer.MEDIA_INFO_VIDEO_ROTATION_CHANGED:
                         break;
                 }
-                return true;
             }
 
             @Override
