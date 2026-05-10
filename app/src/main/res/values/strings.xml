@@ -106,6 +106,8 @@
     <string name="player_danmaku_load">Danmaku load</string>
     <string name="player_adblock">Remove ads</string>
     <string name="player_tunnel">Tunnel mode</string>
+    <string name="player_vod">VOD Player</string>
+    <string name="player_live">Live Player</string>
     <string name="player_buffer">Buffer time</string>
     <string name="player_speed">Press speed</string>
     <string name="player_ua">User-Agent</string>

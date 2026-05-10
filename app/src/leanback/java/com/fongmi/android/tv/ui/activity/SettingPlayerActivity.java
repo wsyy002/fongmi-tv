@@ -48,6 +48,7 @@ public class SettingPlayerActivity extends BaseActivity implements UaCallback, B
         setVisible();
         format = new DecimalFormat("0.#");
         mBinding.render.requestFocus();
+        setPlayerText();
         mBinding.uaText.setText(Setting.getUa());
         mBinding.aacText.setText(getSwitch(Setting.isPreferAAC()));
         mBinding.tunnelText.setText(getSwitch(Setting.isTunnel()));
@@ -71,6 +72,8 @@ public class SettingPlayerActivity extends BaseActivity implements UaCallback, B
         mBinding.speed.setOnClickListener(this::onSpeed);
         mBinding.buffer.setOnClickListener(this::onBuffer);
         mBinding.render.setOnClickListener(this::setRender);
+        mBinding.vodPlayer.setOnClickListener(this::setVodPlayer);
+        mBinding.livePlayer.setOnClickListener(this::setLivePlayer);
         mBinding.tunnel.setOnClickListener(this::setTunnel);
         mBinding.caption.setOnClickListener(this::setCaption);
         mBinding.adblock.setOnClickListener(this::setAdblock);
@@ -173,5 +176,25 @@ public class SettingPlayerActivity extends BaseActivity implements UaCallback, B
     private void onBackground(View view) {
         Setting.putBackground(Setting.isBackgroundOn() ? 0 : 1);
         mBinding.backgroundText.setText(getSwitch(Setting.isBackgroundOn()));
+    }
+
+    private void setPlayerText() {
+        String[] players = {"System", "IJK", "Exo"};
+        mBinding.vodPlayerText.setText(players[Setting.getPlayer()]);
+        mBinding.livePlayerText.setText(players[Setting.getLivePlayer()]);
+    }
+
+    private void setVodPlayer(View view) {
+        String[] players = {"System", "IJK", "Exo"};
+        int index = (Setting.getPlayer() + 1) % players.length;
+        Setting.putPlayer(index);
+        mBinding.vodPlayerText.setText(players[index]);
+    }
+
+    private void setLivePlayer(View view) {
+        String[] players = {"System", "IJK", "Exo"};
+        int index = (Setting.getLivePlayer() + 1) % players.length;
+        Setting.putLivePlayer(index);
+        mBinding.livePlayerText.setText(players[index]);
     }
 }
