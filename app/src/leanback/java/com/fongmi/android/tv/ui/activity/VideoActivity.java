@@ -8,7 +8,10 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.text.style.ClickableSpan;
+import android.graphics.SurfaceTexture;
 import android.view.KeyEvent;
+import android.view.Surface;
+import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
@@ -264,6 +267,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mFrameParams = mBinding.video.getLayoutParams();
         mClock = Clock.create(mBinding.widget.clock);
         mKeyDown = CustomKeyDownVod.create(this);
+        initIjkView();
         mObserveDetail = this::setDetail;
         mObservePlayer = this::setPlayer;
         mObserveSearch = this::setSearch;
@@ -1439,6 +1443,26 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             if (isTaskRoot()) startActivity(new Intent(this, HomeActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
             super.onBackInvoked();
         }
+    }
+
+    private void initIjkView() {
+        mBinding.ijkView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+            @Override
+            public void onSurfaceTextureAvailable(SurfaceTexture st, int width, int height) {
+                if (player() != null) player().setIjkSurface(new Surface(st));
+            }
+            @Override public void onSurfaceTextureSizeChanged(SurfaceTexture st, int w, int h) {}
+            @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture st) { return true; }
+            @Override public void onSurfaceTextureUpdated(SurfaceTexture st) {}
+        });
+    }
+
+    private boolean isIjkActive() {
+        return Setting.getPlayer() == 1;
+    }
+
+    private int getActivePlayer() {
+        return Setting.getPlayer();
     }
 
     @Override

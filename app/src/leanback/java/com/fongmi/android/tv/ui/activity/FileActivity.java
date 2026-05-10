@@ -47,9 +47,11 @@ public class FileActivity extends BaseActivity implements FileAdapter.OnClickLis
     }
 
     private void update(File dir) {
-        mBinding.recycler.setSelectedPosition(0);
-        mAdapter.addAll(Path.list(this.dir = dir));
+        this.dir = dir;
+        mAdapter.addAll(Path.list(dir));
         mBinding.progressLayout.showContent(true, mAdapter.getItemCount());
+        mBinding.recycler.requestFocus();
+        mBinding.recycler.setSelectedPosition(0);
     }
 
     @Override
