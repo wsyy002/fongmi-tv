@@ -412,7 +412,8 @@ public class PlayerManager implements ParseCallback {
 
     private void rebuildIjkPlayer() {
         ijkEngine.rebuild(null);
-        callback.onPlayerRebuild(null);
+        // Always pass the ExoPlayer (kept alive for MediaSession)
+        callback.onPlayerRebuild(player);
     }
 
     /** Set to force IJK mode regardless of URL detection. Used by LiveActivity. */
