@@ -17,25 +17,23 @@ jobs:
       - run: chmod +x gradlew
 
       - name: Build arm64_v8a
-        run: |
-          echo "Build arm64_v8a started at: $(date)"
-          ./gradlew :app:assembleLeanbackArm64_v8aDebug --stacktrace 2>&1 | tee build-arm64.log
-          echo "Build arm64_v8a finished at: $(date)"
+        run: ./gradlew :app:assembleLeanbackArm64_v8aDebug --stacktrace
 
       - name: Build armeabi_v7a
-        run: |
-          echo "Build armeabi_v7a started at: $(date)"
-          ./gradlew :app:assembleLeanbackArmeabi_v7aDebug --stacktrace 2>&1 | tee build-armeabi.log
-          echo "Build armeabi_v7a finished at: $(date)"
+        run: ./gradlew :app:assembleLeanbackArmeabi_v7aDebug --stacktrace
 
-      - name: Show APKs
+      - name: Prepare APKs
         run: |
-          echo "=== ALL APKs ==="
-          find . -name "*.apk" -type f 2>/dev/null
+          echo "Looking for APKs..."
+          find . -name "*.apk" -type f
+          echo "---"
+          mkdir -p upload
+          find . -name "*.apk" -type f -exec cp -v {} upload/ \;
+          ls -la upload/
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
           name: fongmi-tv-apks
-          path: app/build/outputs/**/*.apk
+          path: upload/
           if-no-files-found: error
