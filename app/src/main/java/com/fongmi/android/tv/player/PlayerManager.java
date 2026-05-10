@@ -148,7 +148,8 @@ public class PlayerManager implements ParseCallback {
     }
 
     public Tracks getCurrentTracks() {
-        return !isIjkMode() && exoEngine != null ? exoEngine.getCurrentTracks() : null;
+        if (!isIjkMode() && exoEngine != null) return exoEngine.getCurrentTracks();
+        return Tracks.EMPTY;
     }
 
     public MediaItem getCurrentMediaItem() {
