@@ -495,6 +495,22 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (result.hasDesc()) mBinding.content.setTag(result.getDesc());
         if (result.hasPosition()) mHistory.setPosition(result.getPosition());
         mBinding.control.parse.setVisibility(isUseParse() ? View.VISIBLE : View.GONE);
+        // Set engine based on VOD player setting
+        if (player() != null) {
+            if (getActivePlayer() == 1) {
+                player().setForceIjk(true);
+                mBinding.ijkView.setVisibility(View.VISIBLE);
+                mBinding.exo.setVisibility(View.GONE);
+                if (mBinding.ijkView.isAvailable()) {
+                    android.graphics.SurfaceTexture st = mBinding.ijkView.getSurfaceTexture();
+                    if (st != null) player().setIjkSurface(new android.view.Surface(st));
+                }
+            } else {
+                player().setForceExo(true);
+                mBinding.ijkView.setVisibility(View.GONE);
+                mBinding.exo.setVisibility(View.VISIBLE);
+            }
+        }
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
     }
 

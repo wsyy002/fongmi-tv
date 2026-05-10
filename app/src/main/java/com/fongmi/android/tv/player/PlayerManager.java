@@ -88,17 +88,15 @@ public class PlayerManager implements ParseCallback {
     /**
      * Switch active rendering engine.
      * ExoPlayer is ALWAYS kept alive for MediaSession compatibility.
-     * In IJK mode, ExoPlayer is paused/stopped but not released.
      */
     public void setActiveEngine(int playerType) {
         if (this.activeEngine == playerType) return;
         this.activeEngine = playerType;
         switch (playerType) {
             case PLAYER_IJK:
-                // Stop ExoPlayer but keep it alive for MediaSession
-                if (player != null) {
-                    player.stop();
-                    player.clearMediaItems();
+                // Pause ExoPlayer but keep it alive for MediaSession
+                if (player != null && player.getPlaybackState() != Player.STATE_IDLE) {
+                    player.pause();
                 }
                 if (ijkEngine == null) ijkEngine = new IjkPlayerEngine(PlayerEngine.HARD, null);
                 break;
@@ -107,9 +105,7 @@ public class PlayerManager implements ParseCallback {
                 if (ijkEngine != null) {
                     ijkEngine.stop();
                 }
-                if (player != null) {
-                    player.setPlayWhenReady(true);
-                }
+                // ExoPlayer will be started by exoEngine.start() via setMediaItem()
                 break;
         }
     }
@@ -461,31 +457,15 @@ public class PlayerManager implements ParseCallback {
      * User setting: getPlayer()=0→System(Exo), 1→IJK, 2→Exo(default)
      * For live content, use getLivePlayer(): 0→System, 1→IJK(default), 2→Exo
      */
+    /**
+     * Determine which player engine to use.
+     * Only uses explicit force flags (set by LiveActivity/VideoActivity)
+     * and user settings - NO URL-based detection (avoids .m3u8 misclass).
+     */
     private boolean determineEngine(PlaySpec spec) {
-        // 1. Explicit force flags (set by LiveActivity/VodActivity)
         if (forceIjk) return true;
         if (forceExo) return false;
-
-        // 2. Live content via URL detection
-        boolean isLiveContent = spec != null && spec.getUrl() != null &&
-                (spec.getUrl().contains(".m3u8") ||
-                 spec.getUrl().contains(".flv") ||
-                 spec.getUrl().contains("rtmp://") ||
-                 spec.getUrl().contains("rtsp://") ||
-                 spec.getUrl().contains("live") ||
-                 spec.getUrl().contains("play") ||
-                 spec.getUrl().startsWith("http://") && (
-                     spec.getUrl().contains("tv") ||
-                     spec.getUrl().contains("channel") ||
-                     spec.getUrl().contains("stream")));
-
-        if (isLiveContent) {
-            // Live: 0=Exo, 1=IJK(default), 2=Exo
-            return Setting.getLivePlayer() == 1;
-        } else {
-            // VOD: 0=System(Exo), 1=IJK, 2=Exo(default)
-            return Setting.getPlayer() == 1;
-        }
+        return false;
     }
 
     public void parse(String key, Result result, boolean useParse, MediaMetadata metadata) {
