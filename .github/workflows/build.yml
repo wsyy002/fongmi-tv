@@ -16,8 +16,9 @@ jobs:
       - uses: android-actions/setup-android@v3
       - run: chmod +x gradlew
 
-      - name: Build (all ABI variants)
-        run: ./gradlew :app:assembleLeanbackDebug --stacktrace
+      - name: Build all ABI variants
+        run: |
+          ./gradlew :app:assembleLeanbackArm64_v8aDebug :app:assembleLeanbackArmeabi_v7aDebug --stacktrace
 
       - name: List APKs
         run: find app/build -name "*.apk" -type f
